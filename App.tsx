@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FormDataType } from './types';
-import { SECTIONS, DESTINATION_EMAIL, LOGO_TYPES, MOCKUP_TYPES, DELIVERY_FORMATS } from './constants';
+import { SECTIONS, DESTINATION_EMAIL, LOGO_TYPES, FONT_STYLES, MOCKUP_TYPES, DELIVERY_FORMATS } from './constants';
 import { StepIndicator } from './components/StepIndicator';
 import { FormField } from './components/FormField';
 import { 
@@ -53,7 +53,17 @@ function App() {
   
   // Submission States
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false); // Used if we returned (optional) or for UI state
+  const [isSubmitted, setIsSubmitted] = useState(false); 
+
+  // Check for success param on load (to show animation after redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('submitted') === 'true') {
+      setIsSubmitted(true);
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const updateField = (field: keyof FormDataType, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -144,7 +154,6 @@ Notes: ${formData.additionalNotes}
 
   const submitBrief = () => {
     setIsSubmitting(true);
-    // Submit the hidden form programmatically
     if (formRef.current) {
       formRef.current.submit();
     }
@@ -159,6 +168,35 @@ Notes: ${formData.additionalNotes}
 
   const InputClass = "w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all";
   const CheckboxClass = "w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500";
+
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-lg w-full text-center">
+          <div className="checkmark-wrapper mb-8">
+            <svg className="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+              <circle className="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+              <path className="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">تم استلام طلبك بنجاح!</h2>
+          <h3 className="text-xl text-gray-600 mb-6">Your brief has been submitted.</h3>
+          
+          <div className="bg-green-50 text-green-800 p-4 rounded-lg mb-6 text-sm">
+            تم إرسال نسخة من البيانات إلى البريد الإلكتروني.<br/>
+            سنقوم بمراجعة التفاصيل والتواصل معك قريباً.
+          </div>
+
+          <button 
+            onClick={() => window.location.href = window.location.pathname}
+            className="text-indigo-600 hover:text-indigo-800 font-medium underline"
+          >
+            إرسال طلب جديد / Start New Brief
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -238,12 +276,22 @@ Notes: ${formData.additionalNotes}
         return (
           <>
             <FormField labelAr="نوع اللوجو المطلوب؟" labelEn="What logo type do you prefer?">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {LOGO_TYPES.map(type => (
-                  <label key={type.id} className={`p-3 border rounded-lg cursor-pointer flex flex-col items-center justify-center transition-all ${formData.logoType.includes(type.id) ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white hover:bg-gray-50'}`}>
+                  <label key={type.id} className={`relative overflow-hidden border-2 rounded-xl cursor-pointer transition-all group ${formData.logoType.includes(type.id) ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-gray-300 bg-white'}`}>
                     <input type="checkbox" className="hidden" checked={formData.logoType.includes(type.id)} onChange={() => toggleArrayItem('logoType', type.id)} />
-                    <span className="text-2xl mb-1">{type.icon}</span>
-                    <span className="text-sm font-medium">{type.label}</span>
+                    
+                    <div className="h-32 bg-gray-100 overflow-hidden">
+                      <img src={type.image} alt={type.label} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    
+                    <div className="p-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-bold text-gray-900">{type.label}</span>
+                        {formData.logoType.includes(type.id) && <CheckCircle className="w-5 h-5 text-indigo-600" />}
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">{type.description}</p>
+                    </div>
                   </label>
                 ))}
               </div>
@@ -277,10 +325,33 @@ Notes: ${formData.additionalNotes}
                 <option value="Both">Both (Arabic & English)</option>
               </select>
             </FormField>
-            <FormField labelAr="نوعية الخط المطلوبة؟" labelEn="Font style?">
-              <input type="text" className={InputClass} value={formData.fontStyle} onChange={e => updateField('fontStyle', e.target.value)} placeholder="Modern, Classic, Bold, Handwritten..." />
+            
+            <FormField labelAr="نوعية الخط المطلوبة؟" labelEn="Font style preference?">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  {FONT_STYLES.map(style => (
+                     <label key={style.id} className={`flex flex-col border rounded-lg cursor-pointer overflow-hidden transition-all ${formData.fontStyle.includes(style.id) ? 'border-indigo-600 ring-1 ring-indigo-300' : 'border-gray-200 hover:border-gray-300'}`}>
+                       <input 
+                          type="radio" 
+                          name="fontStyle" 
+                          className="hidden" 
+                          value={style.id} 
+                          checked={formData.fontStyle === style.id} 
+                          onChange={() => updateField('fontStyle', style.id)} 
+                        />
+                        <div className="h-20 bg-gray-50">
+                          <img src={style.image} alt={style.label} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="p-3">
+                          <span className="font-bold text-gray-900 block text-sm">{style.label}</span>
+                          <span className="text-xs text-gray-500">{style.description}</span>
+                        </div>
+                     </label>
+                  ))}
+               </div>
+              <input type="text" className={InputClass} value={formData.fontStyle} onChange={e => updateField('fontStyle', e.target.value)} placeholder="أو اكتب وصفاً خاصاً هنا / Or type custom style..." />
             </FormField>
-             <FormField labelAr="أمثلة خطوط تعجبك؟" labelEn="Any fonts you like?">
+
+             <FormField labelAr="أمثلة خطوط تعجبك؟" labelEn="Any fonts you like? (Names or Links)">
               <input type="text" className={InputClass} value={formData.fontExamples} onChange={e => updateField('fontExamples', e.target.value)} />
             </FormField>
           </>
@@ -346,8 +417,8 @@ Notes: ${formData.additionalNotes}
               <AlertCircle className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800">
                 <p className="font-bold mb-1">Confirm & Send</p>
-                <p>This will redirect you to a verification page to complete the submission.</p>
-                <p className="mt-1 text-xs">سيتم تحويلك لصفحة التحقق لضمان وصول الرسالة.</p>
+                <p>Upon sending, you will be redirected back here to confirm.</p>
+                <p className="mt-1 text-xs">سيتم إعادة توجيهك إلى هنا مرة أخرى لتأكيد النجاح.</p>
               </div>
             </div>
 
@@ -360,7 +431,7 @@ Notes: ${formData.additionalNotes}
                 {isSubmitting ? (
                   <>
                     <Loader2 size={20} className="animate-spin" />
-                    Sending... (جاري التحويل)
+                    Processing...
                   </>
                 ) : (
                   <>
@@ -384,6 +455,9 @@ Notes: ${formData.additionalNotes}
         return null;
     }
   };
+
+  // Construct the Return URL (current page + ?submitted=true)
+  const returnUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?submitted=true` : '';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4 sm:px-6">
@@ -446,8 +520,10 @@ Notes: ${formData.additionalNotes}
       >
         {/* Config Fields */}
         <input type="hidden" name="_subject" value={`New Brief: ${formData.companyName}`} />
-        <input type="hidden" name="_template" value="table" />
+        <input type="hidden" name="_template" value="box" />
         <input type="hidden" name="_captcha" value="false" />
+        {/* Redirect back to the app with a success param to show the checkmark */}
+        <input type="hidden" name="_next" value={returnUrl} />
         
         {/* Data Fields */}
         <input type="hidden" name="1. Company Name" value={formData.companyName} />
